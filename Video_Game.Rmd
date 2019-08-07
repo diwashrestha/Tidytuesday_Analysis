@@ -1,0 +1,299 @@
+---
+title: "Your Document Title"
+author: "Document Author"
+date: "`r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load the packages
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(magrittr)
+library(ggthemr)
+library(RColorBrewer)
+library(gganimate)
+```
+
+
+### Load the data
+
+```{r include=FALSE}
+ggthemr("fresh")
+```
+
+```{r echo=TRUE}
+video_game <-
+  read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-07-30/video_games.csv")
+```
+
+
+### Data Transformation
+
+Lets take a look at our dataframe.
+
+```{r}
+head(video_game)
+```
+
+
+
+```{r}
+summary(video_game)
+```
+ 
+video_game dataframe has 26688 rows and  10 columns.
+ 
+### Missing value
+ 
+Lets check for the missing value in the dataframe.
+ 
+```{r}
+colSums(is.na(video_game))
+```
+
+
+```{r}
+video_game <- video_game %>% mutate(metascore = replace(
+  metascore,
+  is.na(metascore),
+  median(metascore, na.rm = TRUE)
+))
+
+video_game <- video_game %>% mutate(price = replace(
+  price,
+  is.na(price),
+  median(price, na.rm = TRUE)
+))
+
+video_game <- video_game %>% mutate(average_playtime = replace(
+  average_playtime,
+  is.na(average_playtime),
+  median(average_playtime, na.rm = TRUE)
+))
+
+video_game <- video_game %>% mutate(median_playtime = replace(
+  median_playtime,
+  is.na(median_playtime),
+  median(median_playtime, na.rm = TRUE)
+))
+```
+
+
+```{r include=FALSE}
+video_game <- read_csv("/home/diwash/Downloads/video_game.csv")
+```
+
+```{r}
+video_game <- video_game %>% mutate(
+  year = year(mdy(release_date)),
+  month = month(mdy(release_date), label = TRUE),
+  weekday = wday(mdy(release_date), label = TRUE)
+)
+```
+
+
+
+```{r}
+video_game <- na.omit(video_game)
+```
+
+```{r}
+colSums(is.na(video_game))
+```
+
+We replaced the numerical values with median of the respective values and dropped the missing rows in  publisher and developer column.
+
+```{r}
+video_game %<>%
+  mutate(
+    max_owners = str_trim(word(owners, 2, sep = "\\..")),
+    max_owners = as.numeric(str_replace_all(max_owners, ",", "")),
+    min_owners = str_trim(word(owners, 1, sep = "\\..")),
+    min_owners = as.numeric(str_replace_all(min_owners, ",", ""))
+  )
+```
+
+The owner column has the range of owner of a game and the code create max and min owner of the game.
+
+Let's see the final dataframe:
+
+```{r}
+head(video_game)
+```
+
+### Visualization of Data
+
+```{r}
+discrete_pal <- c(
+  "#fa4234", "#f5b951", "#e8f538", "#52b0f7",
+  "#b84ef5", "#4ed1f5", "#45b58e", "#1a1612",
+  "#474ccc", "#47cc92", "#a0cc47", "#c96f32"
+)
+```
+
+
+```{r fig.width=8}
+ggthemr("flat")
+ggplot(data = video_game %>% group_by(developer) %>%
+         tally(sort = TRUE) %>% head(10)) +
+  geom_col(aes(x = reorder(developer, n), y = n, fill = n)) +
+  labs(
+    title = "Developer with most Games", x = NULL, y = "Game Count",
+    fill = "Game Count", caption = "by: @diwastha"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1))
+```
+
+
+```{r}
+ggplot(data = video_game %>% group_by(publisher) %>%
+  tally(sort = TRUE) %>% head(10)) +
+  geom_col(aes(x = reorder(publisher, n), y = n, fill = n)) +
+  labs(
+    title = "Publisher with most Games", y = "Game Count", x = NULL,
+    fill = "Game Count", caption = "by: @diwastha"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 40, hjust = 1))
+```
+
+Big Fish Games is the biggest publisher by the game count as it publish lots of free to play and casual games.Sega which is second largest publisher has less than half of the game published by the Big Fish Games.
+
+
+```{r message=FALSE, warning=FALSE}
+video_game %>%
+  select(-number) %>%
+  mutate(max_owners = as.factor(max_owners / 1000000)) %>%
+  group_by(publisher) %>%
+  mutate(n = n()) %>%
+  ungroup() %>%
+  filter(n >= 80) %>%
+  ggplot(aes(publisher, max_owners, color = publisher)) +
+  geom_jitter(show.legend = FALSE, size = 2, alpha = 0.5) +
+  labs(
+    title = "Distribution of ownership of top publishers",
+    y = "Estimated Game Ownership per Million", x = NULL
+  ) +
+  theme_minimal() + scale_color_manual(values = discrete_pal) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  stat_summary(
+    fun.y = mean, geom = "line", shape = 20,
+    size = 5, color = "#555555"
+  )
+```
+
+
+```{r}
+ggplot(data = video_game %>% arrange(desc(average_playtime)) %>% head(20)) +
+  geom_col(aes(x = reorder(game, average_playtime), y = average_playtime, fill = metascore)) +
+  labs(
+    title = "Games with most metascore", x = NULL, y = "Average Playtime",
+    caption = "by: @diwastha"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+ggplot(data = video_game %>% group_by(max_owners) %>% 
+         arrange(desc(max_owners)) %>% head(10)) +
+  geom_col(aes(x = reorder(game, max_owners), y = max_owners)) +
+  labs(
+    title = "Most Sold Video Games", y = "Number of copies sold", x = NULL,
+    caption = "by: @diwastha"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+```{r}
+ggplot(data = video_game %>% group_by(max_owners) %>% 
+         arrange(desc(max_owners)) %>% head(10)) +
+  geom_col(aes(x = reorder(game, price), y = price, fill = price)) +
+  labs(
+    title = "Price of most sold games", y = "Price in $", x = NULL,
+    caption = "by: @diwastha"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+ggthemr("flat")
+ggplot(
+  data = video_game %>% group_by(year) %>%
+    summarise(avg_price = mean(price)),
+  aes(x = year, y = avg_price)
+) +
+  geom_line() + geom_point(color = "red") +
+  labs(
+    title = "Average Price of the Game over the year",
+    x = NULL, y = "price in $", caption = "by: @diwastha"
+  ) +
+  theme_minimal()
+```
+
+
+
+```{r include=FALSE}
+ggthemr("flat")
+```
+
+
+
+```{r}
+ggplot(data = video_game) + geom_bar(aes(x = year)) +
+  labs(
+    title = "Number of active games since release year",
+    y = "Number of Game", x = NULL, caption = "by: @diwastha"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(data = video_game) + geom_bar(aes(x = month)) +
+  transition_time(year) +
+  labs(
+    title = "Games released in each month",
+    subtitle = "Year: {frame_time}",
+    y = "Number of Game", x = NULL, caption = "by: @diwastha"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(data = video_game %>% mutate(release_date = mdy(release_date)) %>%
+  group_by(release_date) %>%
+  summarise(count_games = n()) %>%
+  mutate(
+    day_of_week = weekdays(release_date),
+    weekend = ifelse(day_of_week %in% c("Saturday", "Sunday"),
+      "yes",
+      "no"
+    )
+  )) +
+  geom_jitter(aes(x = release_date, y = count_games, color = weekend), alpha = 0.4) +
+  labs(title = "Games released on weekend", y = "Number of Games", x = NULL) +
+  theme_minimal()
+```
+
+[Anasthsia Kuprina](https://twitter.com/Kuprinasha)
+[CHRISTOPHER YEE](https://www.christopheryee.org/blog/tidytuesday-steam-games/)
+
+
