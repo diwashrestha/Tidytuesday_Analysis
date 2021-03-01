@@ -1,0 +1,234 @@
+---
+title: "Himalyan Climber"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(highcharter)
+library(echarts4r)
+library(data.table)
+library(vroom)
+library(janitor)
+```
+
+```{r load data}
+expeditions <- fread("Himalayan Climber/data/expeditions.csv")%>%clean_names()
+members <- fread("Himalayan Climber/data/members.csv")%>%clean_names()
+peaks <- fread("Himalayan Climber/data/peaks.csv")%>%clean_names()
+```
+
+
+```{r glimpse expeditions}
+glimpse(expeditions)
+```
+
+```{r glimpse members}
+glimpse(members)
+```
+
+```{r glimpse peaks}
+glimpse(peaks)
+```
+
+# Start with peaks
+
+* How many peaks are already climbed and how many still remained unclimbed
+* distribution of heights
+
+```{r}
+ggplot(peaks) + geom_histogram(aes(height_metres),binwidth=100,fill="royalblue") + theme_minimal()
+```
+## Questions in this analysis
+
+* Climbing status of mountain
+* Peaks distribution 
+* Which country has highest number of climbers
+* In which year most death occured and success occured?
+* Hired people are injured or Climbers are injured?
+* Age group of climbers and Hired people
+* which mountain is risky and in which season?
+
+
+
+```{r missing values in peaks}
+peaks%>%is.na()%>%colSums()
+```
+
+```{r climbing status}
+peaks%>%group_by(climbing_status)%>%
+    summarise(count=n())%>%
+    mutate(percent = round(count/sum(count)*100,2))
+```
+* Out of 468 peaks in himalayan region , 341 is climbed i.e 72.86 % and 127 is still unclimbed i.e 27.14.
+
+
+```{r}
+climb_status<-peaks%>%group_by(climbing_status)%>%
+    summarise(count=n())%>%
+    mutate(percent = round(count/sum(count)*100,2))
+
+    ggplot(climb_status)+
+    geom_col(aes(x=climbing_status,count,fill=climbing_status))+
+        labs(title="Climbing Status of Himalyan Peaks",x="count",y="Climbing Status")+
+        theme_minimal()+
+        theme(legend.position = "")
+```
+
+### First Ascent year
+
+```{r}
+peaks%>%
+    filter(climbing_status=="Climbed")%>%
+    group_by(first_ascent_year)%>%
+    summarise(n())
+```
+
+Here one peak has ascent year of 201 ,lets check which peak is this?
+
+```{r}
+peaks%>%filter(first_ascent_year==201)
+```
+
+The peak is Sharphu II which was climbed in 2018 . So i will replace 201 with 2018 for sharphhu 2.
+
+```{r}
+peaks[first_ascent_year==201]$first_ascent_year <- 2018
+```
+
+
+```{r}
+peaks%>%
+    filter(climbing_status=="Climbed")%>%
+    group_by(first_ascent_year)%>%
+    summarise(n())
+```
+
+After sorting the 'Sharphu 2' now we have 6 NA values for peaks with climbed status.
+Lets check which mountain are these.
+
+```{r}
+peaks%>%filter(climbing_status=="Climbed" & is.na(first_ascent_year))
+```
+
+I m looking into the google to find the first date of ascent for these mountains.
+
+Naya Kanga - 1953
+Khongma Tse - 1991 
+Nirekha - 2003
+Jinjang - 1960 
+Herzog Peak - 1950
+Nuptse West II - 1961
+
+```{r}
+peaks[peak_name=="Naya Kanga"]$first_ascent_year <- 1953
+peaks[peak_name=="Khongma Tse"]$first_ascent_year <- 1991
+peaks[peak_name=="Nirekha"]$first_ascent_year <- 2003
+peaks[peak_name=="Jinjang"]$first_ascent_year <- 1960
+peaks[peak_name=="Herzog Peak"]$first_ascent_year <- 1950
+peaks[peak_name=="Nuptse West II"]$first_ascent_year <- 1961
+```
+
+
+```{r}
+first_ascent_df <- peaks%>%
+    filter(climbing_status=="Climbed")%>%
+    group_by(first_ascent_year)%>%summarise(count=n())
+```
+
+```{r}
+ggplot(first_ascent_df)+
+    geom_col(aes(first_ascent_year,count))+
+    theme_minimal()
+```
+
+```{r}
+ggplot(peaks%>%filter(climbing_status=="Climbed"))+
+    geom_histogram(aes(first_ascent_year),binwidth = 5)+
+    theme_minimal()
+```
+
+
+# Which country has highest number of climbers
+
+```{r}
+members%>%
+    group_by(citizenship)%>%
+    summarise(count=n())%>%arrange(-count)
+```
+
+# Most death occured by year
+
+```{r}
+members%>%
+    filter(success==TRUE)%>%
+    group_by(year)%>%
+    summarise(count = n())%>%
+    arrange(-count)
+```
+
+* In 2018 1862 climbers climbed himalayan peaks successfully
+* In 1985,89 34 climbers died 
+
+```{r}
+members%>%
+    filter(died==TRUE)%>%
+    group_by(year)%>%
+    summarise(count = n())%>%
+    arrange(-count)
+
+```
+
+## EDA on members df
+
+```{r}
+glimpse(members)
+```
+
+```{r}
+members%>%is.na()%>%colSums()
+```
+
+```{r}
+members%>%
+    group_by(hired,injured)%>%
+    summarise(count=n())
+```
+
+## Age group of climbers and Hired people
+
+```{r}
+climber_age_df <- members%>%
+    group_by(hired,age)%>%
+    summarise(count=n())
+```
+
+```{r}
+climber_age_df%>%mutate(age_group = 
+                            case_when(age >=0 & age <=10 ~ "0 to 10",
+                                      age >=11 & age <=20 ~ "5 to 10",
+                                      age >=21 & age <30 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10",
+                                      age >=5 & age <11 ~ "5 to 10"
+                                      ))
+```
+

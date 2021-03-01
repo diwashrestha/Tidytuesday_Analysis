@@ -1,0 +1,106 @@
+---
+title: "Transit Costs Project"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load Library
+
+```{r library}
+library(dplyr)
+library(readr)
+library(tidyr)
+library(data.table)
+library(ggplot2)
+```
+
+```{r data}
+transit_cost <- fread('transit_cost.csv')
+```
+
+
+```{r glimpse}
+glimpse(transit_cost)
+```
+
+
+```{r head}
+head(transit_cost)
+```
+```{r}
+tail(transit_cost,10)
+```
+```{r}
+colSums(is.na(transit_cost))
+```
+
+
+## EDA
+
+* Number of country in the list
+
+```{r}
+transit_cost %>% summarise(n_distinct(country))
+```
+
+** 57 countries **
+
+```{r}
+transit_cost %>%group_by(country)%>%summarise(count=n())%>%arrange(-count)
+```
+** I didn't understand the country name with country code . So need to join it with country code and country name.
+
+```{r}
+library(countrycode)
+countrycode_df <- countrycode::codelist
+```
+
+
+```{r}
+countrycode_df<- countrycode_df%>%select(ecb,country.name.en)
+```
+
+```{r}
+countrycode_df <- countrycode_df%>%rename("country"=ecb, "country_name"=country.name.en)
+```
+
+
+```{r}
+transit_cost <- transit_cost%>%left_join(countrycode_df,by="country")
+```
+
+
+```{r}
+transit_cost%>%group_by(country_name)%>%summarise(count=n())%>%arrange(-count)
+```
+
+* Remove NA value created after joining country name and country code
+
+
+
+* Number of City 
+
+```{r}
+transit_cost%>%summarise(n_distinct(city))
+```
+
+
+
+```{r}
+transit_cost%>%group_by(city)%>%summarise(count = n())%>% arrange(-count)
+```
+
+
+
+```{r}
+colSums(is.na(transit_cost))
+```
+```{r}
+transit_cost%>%tail(20)
+```
+
+

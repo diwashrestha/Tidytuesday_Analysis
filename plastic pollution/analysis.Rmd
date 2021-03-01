@@ -1,0 +1,44 @@
+---
+title: "Plastic Pollution Analysis"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+library(ggplot2)
+```
+
+
+```{r}
+plastics <- readr::read_csv('plastics.csv')
+```
+
+
+```{r}
+glimpse(plastics)
+```
+
+## EDA
+
+```{r}
+distinct(plastics,country)
+```
+
+```{r}
+plastics <- plastics %>% mutate(country = recode(country, "United Kingdom of Great Britain & Northern Ireland" = "United Kingdom"  , "ECUADOR" = "Ecuador" ,"NIGERIA" = "Nigeria", "Taiwan_ Republic of China (ROC)" = "Taiwan"  ))
+```
+
+
+```{r}
+plastics %>%group_by(country)%>% summarise(count = n())%>%arrange(-count)
+```
+
+```{r}
+plastics %>% group_by(parent_company)%>%summarise(count = n())%>%arrange(-count)
+```
+
